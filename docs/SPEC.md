@@ -624,7 +624,7 @@ AppError(Exception)             exit_code = 1, base for all expected errors; .me
    ```
 9. Demo credentials (`demo-key-123`, `demo-token-456`, `demo` / `demo-pass`) are **public, non-secret constants**. They live only in `src/apitool/demo/api.py` and `src/apitool/demo/jobs.py`, with the comment `# Public demo credential for the built-in fake API. Not a secret.` They only work against the in-process demo transport.
 10. Secrets are stored unencrypted in the local SQLite file under the git-ignored `data/`. The README states this, and recommends `env:NAME` for scheduled or shared machines. Encryption is phase 3.
-11. Before every commit, the executor runs the secret scan from PLAN T30 (it is also part of CI as a test). A finding blocks the commit.
+11. Before every commit, the executor runs the secret scan from PLAN T30 (it is also part of CI as a test). A finding blocks the commit. (That scan exists as a test only from PLAN T30 onward; before T30, grep the tracked files for the AC-46 forbidden strings by hand before every commit instead.)
 
 ---
 

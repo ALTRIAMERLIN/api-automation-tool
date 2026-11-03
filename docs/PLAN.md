@@ -163,6 +163,7 @@ def preview_job(storage, job_id, *, transport=None, sleep=None) -> PreviewResult
 - Depends on: nothing (the planning commits are already on `main`).
 - Inputs: SPEC §17.8.
 - Steps:
+  0. Before anything else, set the repo-local git identity to your own: `git config user.name "<your name>"` and `git config user.email "<your email>"`. Never commit under the planning commits' neutral identity (`api-automation-tool planner <planner@localhost>`).
   1. On `main`, create `.gitignore` with exactly the SPEC §17.8 lines, `README.md` containing `# API Automation Tool` and a blank line, an empty `src/apitool/.gitkeep`, and an empty `tests/.gitkeep`.
   2. `git add .gitignore README.md src/apitool/.gitkeep tests/.gitkeep`, then `git commit -m "chore: empty project skeleton"`.
   3. `git branch baseline`, then `git switch -c review/v1`.
@@ -394,6 +395,7 @@ Self-check: reread SPEC §14 and §17. Confirm that no template prints a secret,
 - Depends on: T27. Inputs: SPEC §20 (CI), §21.1.
 - Output: `README.md` (full), `LICENSE` (MIT, year 2026, holder `api-automation-tool contributors`), `.github/workflows/ci.yml`, `docs/images/*.png` (from demo mode, at most 1400 px wide, no personal data visible), `tests/test_readme.py`.
 - Notes: the CI workflow cannot run until T31. Check it carefully against SPEC §20. Commands in the README must be copy-paste correct for PowerShell, with bash equivalents for Linux and macOS.
+- Screenshots: captured by the human operator from the running demo-mode UI (same arrangement as T28's video recording). The executor does not capture them; it only verifies each referenced file exists under `docs/images/`, is at most 1400 px wide, and shows no personal data.
 - Done when: AC-45 passes (the README walkthrough done manually in a fresh venv in a temporary folder, noted with a `manual:` line).
 
 ### T30 — Final release gate

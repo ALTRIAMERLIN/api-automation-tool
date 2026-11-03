@@ -373,7 +373,7 @@ Test files are named in brackets. Unless stated otherwise, "error X" means the r
 
 **AC-28** (T17) [tests/test_storage_runs.py] `start_run` inserts a `running` row. `finish_run_success` and `finish_run_failed` set every column. A second `start_run` for the same job while one is running → JobBusyError. A `running` row whose `started_at` is 2 h 1 min before `now` is marked failed `Interrupted`, and the new run starts. A row 1 h 59 min old still blocks. `list_runs(limit=100)` is newest first.
 
-**AC-29** (T18) [tests/test_storage_state.py] `get_seen_keys(job_id)` is empty at first. `add_seen_keys` inside a success-finish transaction persists the keys. `reset_state(job_id)` empties them. Keys are per job: two jobs with the same key do not affect each other.
+**AC-29** (T18) [tests/test_storage_state.py] `get_seen_keys(job_id)` is empty at first. `finish_run_success` inserts the seen keys inside its own transaction; once it returns, the keys persist. `reset_state(job_id)` empties them. Keys are per job: two jobs with the same key do not affect each other.
 
 **AC-30** (T19) [tests/test_runner.py] On a fresh database with the demo jobs, running each of the 5 demo jobs once (stub sleep, stub now) gives counters equal to `run_stats.json` and warnings equal to §3.8. Output files read back equal: Demo Orders = §3.1, Demo Events = §3.4, Demo Customers = §3.6, Demo Products = §3.7, Demo Flaky Orders = §3.1. The flaky run's sleeps are `[0, 0, 0]`. Output file names follow AC-26 and live in `data_dir/exports`.
 
