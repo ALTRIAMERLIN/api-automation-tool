@@ -6,7 +6,7 @@ import pytest
 def _block_network(monkeypatch):
     """No test may touch the network (SPEC section 20)."""
 
-    def _refuse(self, request):  # noqa: ARG001
+    def _refuse(self, request):
         raise RuntimeError("network disabled in tests")
 
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _refuse)
