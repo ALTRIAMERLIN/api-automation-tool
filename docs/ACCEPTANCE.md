@@ -435,7 +435,7 @@ Test files are named in brackets. Unless stated otherwise, "error X" means the r
 
 **AC-46** (T30) [tests/test_repo_hygiene.py]
 - `git ls-files` contains no path under `data/`, `ops/` or `video/`, and none ending in `.db`, `.xlsx`, `.csv` or `.log`.
-- No tracked text file contains any of: `super-secret`, `query-secret`, `zz-secret`, `ENTIRE_TOKEN`, `BEGIN PRIVATE KEY`, `ghp_`, `github_pat_`. Exception: files under `tests/`, and `docs/ACCEPTANCE.md` and `docs/REVIEW.md`, may contain the three test-only strings and `ENTIRE_TOKEN`. The test must not flag itself.
+- No tracked text file contains any of: `super-secret`, `query-secret`, `zz-secret`, `ENTIRE_TOKEN`, `BEGIN PRIVATE KEY`, `ghp_`, `github_pat_`. Exception: files under `tests/`, and `docs/ACCEPTANCE.md` and `docs/REVIEW.md`, may contain the three test-only strings and `ENTIRE_TOKEN`. `docs/PLAN.md` may contain the variable name `ENTIRE_TOKEN_STORE` (the token-store setting in rule G13), but no other `ENTIRE_TOKEN` text. This exception was added by owner decision (Escalation 2, 2026-11-04, option 1). The test must not flag itself.
 - The demo credentials appear only in `src/apitool/demo/`, `tests/`, `docs/` and `README.md`.
 - `.gitignore` equals SPEC §17.8 line for line.
 - If `git` is not on PATH, the test is skipped with a reason (CI always has git).
