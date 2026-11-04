@@ -34,7 +34,7 @@ def get_path(obj: Any, path: str) -> Any:
             if segment not in current:
                 return MISSING
             current = current[segment]
-        elif isinstance(current, list) and segment.isdigit():
+        elif isinstance(current, list) and segment.isascii() and segment.isdigit():
             index = int(segment)
             if index >= len(current):
                 return MISSING

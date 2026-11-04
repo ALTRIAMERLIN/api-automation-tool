@@ -36,6 +36,11 @@ def test_list_root_with_index():
     assert get_path([10, 20], "1") == 20
 
 
+def test_non_ascii_digit_segment_is_missing_not_a_crash():
+    # "²" is a Unicode digit: str.isdigit() accepts it, but int() rejects it.
+    assert get_path([10, 20], "²") is MISSING
+
+
 def test_missing_sentinel_is_unique_and_not_none():
     assert MISSING is not None
     assert MISSING is get_path({}, "x")
