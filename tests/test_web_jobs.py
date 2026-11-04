@@ -280,11 +280,16 @@ def test_every_post_route_needs_the_token(tmp_path):
     app, client = _client(tmp_path)
     _create(client, app)
     job_id = _job_id(app, "Orders Test")
+    # Preview and run send requests and write exports, so they use a demo job (in-process API).
+    client.post("/demo/setup", data={"csrf_token": app.state.csrf_token})
+    demo_id = _job_id(app, "Demo Orders")
     routes = [
         ("/jobs", dict(JOB_FORM)),
         (f"/jobs/{job_id}", dict(JOB_FORM)),
         (f"/jobs/{job_id}/delete", {}),
         (f"/jobs/{job_id}/reset-state", {}),
+        (f"/jobs/{demo_id}/preview", {}),
+        (f"/jobs/{demo_id}/run", {}),
         ("/demo/setup", {}),
         ("/demo/dataset", {"version": "1"}),
     ]
