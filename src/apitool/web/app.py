@@ -1,4 +1,4 @@
-"""FastAPI application factory: middleware, CSRF helper, error pages and static files (SPEC 14)."""
+"""FastAPI application factory: routes, middleware, CSRF helper, error pages (SPEC 14)."""
 
 import hmac
 import secrets
@@ -7,13 +7,15 @@ from http import HTTPStatus
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import FastAPI, Form, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from apitool.storage import Storage
+from apitool.demo.jobs import setup_demo_jobs
+from apitool.runner import utc_now
+from apitool.storage import RunRecord, Storage
 
 WEB_DIR = Path(__file__).parent
 ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost"})
@@ -36,6 +38,22 @@ DEFAULT_MESSAGES = {
     409: "Conflict.",
 }
 
+# Notices are fixed texts. Unknown codes are ignored, and the parameter text is never shown.
+NOTICES = {
+    "job_created": "Job created.",
+    "job_updated": "Job saved.",
+    "job_deleted": "Job deleted.",
+    "demo_loaded": "Demo jobs are ready.",
+    "state_reset": "Sync state cleared. The next run exports all records again.",
+    "state_reset_auto": (
+        "Job saved. Sync state was cleared because the connection or key settings changed."
+    ),
+    "dataset_v1": "Demo API now serves dataset v1.",
+    "dataset_v2": "Demo API now serves dataset v2 (3 new orders).",
+}
+
+STATUS_LABELS = {"success": "Success", "failed": "Failed", "running": "Running"}
+
 
 def _message_for(status: int, detail: object) -> str:
     """Use the detail given by the code, or the default text when it is only the HTTP phrase."""
@@ -53,6 +71,21 @@ def _host_allowed(host_header: str) -> bool:
     return hostname in ALLOWED_HOSTS
 
 
+def _job_rows(storage: Storage) -> list[dict]:
+    rows = []
+    for job in storage.list_jobs():
+        last: RunRecord | None = storage.last_run_for_job(job.id)
+        rows.append(
+            {
+                "job": job,
+                "host": urlsplit(job.config.url).hostname or "",
+                "last": last,
+                "last_label": STATUS_LABELS.get(last.status, last.status) if last else "",
+            }
+        )
+    return rows
+
+
 def create_app(data_dir: Path) -> FastAPI:
     app = FastAPI(
         title="API Automation Tool",
@@ -60,7 +93,8 @@ def create_app(data_dir: Path) -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
-    app.state.storage = Storage(Path(data_dir))
+    storage = Storage(Path(data_dir))
+    app.state.storage = storage
     app.state.csrf_token = secrets.token_urlsafe(32)
     templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
     app.state.templates = templates
@@ -74,6 +108,10 @@ def create_app(data_dir: Path) -> FastAPI:
             raise HTTPException(status_code=403, detail=CSRF_MESSAGE)
 
     app.state.check_csrf = check_csrf
+
+    def render(request: Request, name: str, **context: object) -> HTMLResponse:
+        context.setdefault("csrf_token", app.state.csrf_token)
+        return templates.TemplateResponse(request, name, context)
 
     @app.middleware("http")
     async def guard(
@@ -101,5 +139,30 @@ def create_app(data_dir: Path) -> FastAPI:
     @app.get("/healthz")
     def healthz() -> JSONResponse:
         return JSONResponse({"status": "ok"})
+
+    @app.get("/", response_class=HTMLResponse)
+    def jobs_page(request: Request) -> HTMLResponse:
+        notice = NOTICES.get(request.query_params.get("notice", ""))
+        return render(
+            request,
+            "jobs.html",
+            rows=_job_rows(storage),
+            notice=notice,
+            dataset_version=storage.get_setting("demo_dataset_version", "1"),
+        )
+
+    @app.post("/demo/setup")
+    def demo_setup(csrf_token: str = Form("")) -> RedirectResponse:
+        check_csrf(csrf_token)
+        setup_demo_jobs(storage, utc_now())
+        return RedirectResponse("/?notice=demo_loaded", status_code=303)
+
+    @app.post("/demo/dataset")
+    def demo_dataset(csrf_token: str = Form(""), version: str = Form("")) -> RedirectResponse:
+        check_csrf(csrf_token)
+        if version not in ("1", "2"):
+            raise HTTPException(status_code=400, detail="Dataset version must be 1 or 2.")
+        storage.set_setting("demo_dataset_version", version)
+        return RedirectResponse(f"/?notice=dataset_v{version}", status_code=303)
 
     return app

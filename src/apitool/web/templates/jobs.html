@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+{% if notice %}
+<div class="notice" role="status">{{ notice }}</div>
+{% endif %}
+
+<section class="card">
+  <div class="section-head">
+    <h1>Jobs</h1>
+    <a class="button" href="/jobs/new">New job</a>
+  </div>
+
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Host</th>
+        <th>Pagination</th>
+        <th>Format</th>
+        <th>Last run</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.job.name }}</td>
+        <td>{{ row.host }}</td>
+        <td>{{ row.job.config.pagination_type }}</td>
+        <td>{{ row.job.config.export_format }}</td>
+        <td>
+          {% if row.last %}
+          <span class="badge badge-{{ row.last.status }}">{{ row.last_label }}</span>
+          <span class="muted">{{ row.last.finished_at or row.last.started_at }}</span>
+          {% else %}
+          <span class="muted">Never run</span>
+          {% endif %}
+        </td>
+        <td class="actions">
+          <a href="/jobs/{{ row.job.id }}/edit">Edit</a>
+          <form method="post" action="/jobs/{{ row.job.id }}/preview" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link-button">Preview</button>
+          </form>
+          <form method="post" action="/jobs/{{ row.job.id }}/run" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link-button">Run</button>
+          </form>
+          {% if row.job.config.incremental %}
+          <form method="post" action="/jobs/{{ row.job.id }}/reset-state" class="inline"
+                data-confirm="Reset sync state? The next run exports all records again.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link-button">Reset sync state</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/jobs/{{ row.job.id }}/delete" class="inline"
+                data-confirm="Delete this job? Its saved secret and sync state are removed. Export files are kept.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="link-button danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No jobs yet. Load the five demo jobs to try the tool without an API key.</p>
+  <form method="post" action="/demo/setup">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="button">Load demo jobs</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Demo data</h2>
+  <p>The demo API serves dataset v{{ dataset_version }}. To see incremental sync, run a demo job,
+     run it again (nothing new), then simulate new orders and run once more.</p>
+  <form method="post" action="/demo/dataset" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="version" value="1">
+    <button type="submit" class="button-secondary">Use dataset v1</button>
+  </form>
+  <form method="post" action="/demo/dataset" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="version" value="2">
+    <button type="submit" class="button-secondary">Simulate new orders (v2)</button>
+  </form>
+</section>
+{% endblock %}
