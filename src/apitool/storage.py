@@ -1,7 +1,6 @@
-"""SQLite storage: schema, jobs, secrets and settings (SPEC 13).
+"""SQLite storage: schema, jobs, secrets, settings, runs and sync state (SPEC 13).
 
-Run, sync-state and export queries are added in later tasks. This module is the only one that
-runs SQL. Every statement uses ? placeholders.
+This module is the only one that runs SQL. Every statement uses ? placeholders.
 """
 
 import json

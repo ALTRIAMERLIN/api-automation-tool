@@ -248,6 +248,14 @@ def test_preview_fetches_first_page_and_writes_nothing(store):
     assert store.list_runs() == []
 
 
+def test_runner_re_exports_format_ts_from_timeutil():
+    # PLAN T17: runner re-exports format_ts, which lives in timeutil.
+    from apitool import timeutil
+
+    assert runner.format_ts is timeutil.format_ts
+    assert runner.format_ts(NOW) == "2026-11-04T10:00:00Z"
+
+
 def test_make_transport_routes_demo_host_only():
     assert isinstance(make_transport(f"{DEMO}/v1/orders", 1), httpx.MockTransport)
     assert isinstance(make_transport("https://api.example.com/x", 1), httpx.HTTPTransport)
