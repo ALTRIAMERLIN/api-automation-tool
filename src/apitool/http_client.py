@@ -96,14 +96,41 @@ def _retry_delay(response: httpx.Response, backoff_index: int) -> int:
     return BACKOFF[backoff_index]
 
 
-def _decode(response: httpx.Response, shown: str) -> Any:
-    body = response.content
-    if len(body) > MAX_RESPONSE_BYTES:
-        raise InvalidResponseError(f"response too large (> 10 MiB) from {shown}")
+def _read_capped(response: httpx.Response, shown: str) -> bytes:
+    """Read the decoded body, stopping as soon as it passes MAX_RESPONSE_BYTES.
+
+    Streaming means a large or compressed body is never fully held in memory.
+    """
+    received = bytearray()
+    for chunk in response.iter_bytes():
+        received.extend(chunk)
+        if len(received) > MAX_RESPONSE_BYTES:
+            raise InvalidResponseError(f"response too large (> 10 MiB) from {shown}")
+    return bytes(received)
+
+
+def _decode(body: bytes, shown: str) -> Any:
     try:
         return json.loads(body.decode("utf-8"), parse_constant=_reject_constant)
     except ValueError:
         raise InvalidResponseError(f"response is not valid JSON from {shown}") from None
+
+
+def _classify(response: httpx.Response, shown: str, retries_here: int) -> tuple[str, float] | None:
+    """Return (reason, delay) when the response should be retried, None when it is a success.
+
+    Terminal failures raise. Status checks run before the body is read (SPEC 6.4).
+    """
+    status = response.status_code
+    if 300 <= status <= 399:
+        raise InvalidResponseError(f"unexpected redirect ({status}) from {shown}")
+    if status in RETRYABLE_STATUSES:
+        if retries_here >= len(BACKOFF):
+            raise HttpError(f"HTTP {status} from {shown}", status)
+        return f"HTTP {status}", _retry_delay(response, retries_here)
+    if not 200 <= status <= 299:
+        raise HttpError(f"HTTP {status} from {shown}", status)
+    return None
 
 
 class Fetcher:
@@ -143,27 +170,20 @@ class Fetcher:
         retries_here = 0
         while True:
             try:
-                response = self._client.get(url, headers=self._headers)
+                with self._client.stream("GET", url, headers=self._headers) as response:
+                    self.last_status = response.status_code
+                    decision = _classify(response, shown, retries_here)
+                    if decision is None:
+                        return _decode(_read_capped(response, shown), shown)
+                reason, delay = decision
             except httpx.TransportError as exc:
                 self.last_status = None
-                reason = type(exc).__name__
                 if retries_here >= len(BACKOFF):
-                    raise NetworkError(f"network error ({reason}) from {shown}") from None
-                delay: float = BACKOFF[retries_here]
-            else:
-                status = response.status_code
-                self.last_status = status
-                if 300 <= status <= 399:
-                    raise InvalidResponseError(f"unexpected redirect ({status}) from {shown}")
-                if status in RETRYABLE_STATUSES:
-                    reason = f"HTTP {status}"
-                    if retries_here >= len(BACKOFF):
-                        raise HttpError(f"{reason} from {shown}", status)
-                    delay = _retry_delay(response, retries_here)
-                elif not 200 <= status <= 299:
-                    raise HttpError(f"HTTP {status} from {shown}", status)
-                else:
-                    return _decode(response, shown)
+                    raise NetworkError(
+                        f"network error ({type(exc).__name__}) from {shown}"
+                    ) from None
+                reason = type(exc).__name__
+                delay = BACKOFF[retries_here]
 
             retries_here += 1
             self.retries += 1
