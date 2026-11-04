@@ -8,10 +8,9 @@ import httpx
 from apitool.demo.data import CUSTOMERS, EVENTS_PAGES, ORDERS_V1, ORDERS_V2, PRODUCTS_PAGES
 
 # Public demo credential for the built-in fake API. Not a secret.
+# DEMO_BASIC_AUTH is base64 of demo:demo-pass.
 DEMO_API_KEY = "demo-key-123"
-# Public demo credential for the built-in fake API. Not a secret.
 DEMO_BEARER_TOKEN = "demo-token-456"
-# Public demo credential for the built-in fake API. Not a secret. Base64 of demo:demo-pass.
 DEMO_BASIC_AUTH = "Basic ZGVtbzpkZW1vLXBhc3M="
 
 _INT_RE = re.compile(r"-?\d+")
