@@ -110,3 +110,34 @@ def test_install_filter_is_idempotent():
     logger = logging.getLogger("apitool")
     count = sum(isinstance(f, RedactingFilter) for f in logger.filters)
     assert count == 1
+
+
+def test_traceback_text_is_redacted(caplog):
+    install_filter()
+    register_secrets(["tb-secret-42"])
+    logger = logging.getLogger("apitool")
+    with caplog.at_level(logging.ERROR, logger="apitool"):
+        try:
+            raise ValueError("bad value tb-secret-42")
+        except ValueError:
+            logger.error("failed", exc_info=True)
+    assert "ValueError" in caplog.text  # the traceback is still logged
+    assert "bad value ***" in caplog.text
+    assert "tb-secret-42" not in caplog.text
+
+
+def test_httpx_logger_is_filtered_and_quiet():
+    install_filter()
+    httpx_logger = logging.getLogger("httpx")
+    assert any(isinstance(f, RedactingFilter) for f in httpx_logger.filters)
+    assert httpx_logger.level == logging.WARNING
+    assert httpx_logger.isEnabledFor(logging.INFO) is False
+
+
+def test_httpx_warning_with_secret_in_url_is_redacted(caplog):
+    install_filter()
+    register_secrets(["query-key-9"])
+    with caplog.at_level(logging.WARNING):
+        logging.getLogger("httpx").warning("slow request ?api_key=query-key-9")
+    assert "api_key=***" in caplog.text
+    assert "query-key-9" not in caplog.text
