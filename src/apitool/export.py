@@ -71,7 +71,8 @@ def write_xlsx(path: Path, header: list[str], rows: list[list[Any]]) -> list[str
             sheet.cell(row=row_number, column=column, value=stored)
 
     sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:{get_column_letter(len(header))}{len(rows) + 1}"
+    if header:
+        sheet.auto_filter.ref = f"A1:{get_column_letter(len(header))}{len(rows) + 1}"
 
     tmp = path.with_name(path.name + ".tmp")
     try:

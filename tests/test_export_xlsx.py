@@ -111,6 +111,14 @@ def test_xlsx_atomic_failure_leaves_no_file(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_zero_columns_writes_without_autofilter(tmp_path):
+    # Records with no fields give an empty header. The writer must not crash on it.
+    target = tmp_path / "empty.xlsx"
+    assert write_xlsx(target, [], [[]]) == []
+    sheet = _sheet(target)
+    assert sheet.auto_filter.ref is None
+
+
 def test_too_many_rows_is_checked_before_writing(tmp_path, monkeypatch):
     monkeypatch.setattr(export, "XLSX_MAX_ROWS", 2)
     with pytest.raises(ExportError, match="too many rows for Excel"):
