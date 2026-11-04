@@ -1,0 +1,8 @@
+[
+  ["event_id","type","ts","payload.plan","payload.seats","payload.reason"],
+  ["evt_001","signup","2026-10-01T09:00:00Z","pro","5",""],
+  ["evt_002","upgrade","2026-10-02T12:30:00Z","team","12",""],
+  ["evt_003","login","2026-10-03T08:15:00Z","","",""],
+  ["evt_004","cancel","2026-10-04T17:45:00Z","pro","","too expensive, for now"],
+  ["evt_005","signup","2026-10-05T10:00:00Z","free","1",""]
+]

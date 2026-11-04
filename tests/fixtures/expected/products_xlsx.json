@@ -1,0 +1,8 @@
+[
+  ["sku","title","price","currency","stock"],
+  ["SKU-1","Desk Lamp",24.5,"USD",12],
+  ["SKU-2","Office Chair",149,"USD",0],
+  ["SKU-3","USB-C Hub",39.99,"EUR",57],
+  ["SKU-4","Notebook, A5",3.2,"GBP",null],
+  ["SKU-5","'+Plus Pen",1.75,"USD",300]
+]

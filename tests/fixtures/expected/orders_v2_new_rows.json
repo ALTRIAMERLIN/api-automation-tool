@@ -1,0 +1,6 @@
+[
+  ["id","status","total","currency","customer.name","customer.email","tags","shipped","note"],
+  ["1009","paid","15","USD","Gus Park","gus@example.com","[]","false","new in v2"],
+  ["1010","pending","8.75","GBP","Hana Ito","hana@example.co.uk","[\"intl\"]","false",""],
+  ["1011","paid","250","USD","Ivy Chen","ivy@example.com","[\"vip\"]","true","bulk"]
+]

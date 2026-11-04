@@ -1,0 +1,11 @@
+[
+  ["id","status","total","currency","customer.name","customer.email","tags","shipped","note","customer.address.city","customer.address.zip","coupon"],
+  ["1001","paid","19.99","USD","Alice Smith","alice@example.com","[\"new\",\"vip\"]","true","","","",""],
+  ["1002","pending","5","USD","Bob, Jr.","bob@example.com","[]","false","Leave at \"back\" door","","",""],
+  ["1003","paid","120.5","EUR","Zoë Müller","zoe@example.de","[\"intl\"]","true","Line one\nLine two","","",""],
+  ["1004","refunded","0","USD","'=HYPERLINK(\"http://evil.example\")","mallory@example.com","[\"flagged\"]","false","'-discount applied","","",""],
+  ["1005","paid","42.0","JPY","山田太郎","yamada@example.jp","[\"intl\",\"vip\"]","true","'@mention","","",""],
+  ["1006","paid","3.5","USD","Dana Lee","","[\"new\"]","true","","","",""],
+  ["1007","paid","99.99","USD","Evan Ortiz","evan@example.com","[\"vip\"]","true","'+1 priority","Austin","00731",""],
+  ["1008","cancelled","-12.5","USD","Fay Wong","fay@example.com","[\"a\",\"b\",\"c\"]","false","'\tTabbed","","","SAVE10"]
+]

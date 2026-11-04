@@ -1,0 +1,7 @@
+{
+  "Demo Orders":       {"pages_fetched": 3, "records_fetched": 11, "retries": 0, "duplicates_removed": 2, "records_missing_key": 1, "already_seen_skipped": 0, "records_exported": 8},
+  "Demo Customers":    {"pages_fetched": 3, "records_fetched": 6,  "retries": 0, "duplicates_removed": 0, "records_missing_key": 0, "already_seen_skipped": 0, "records_exported": 6},
+  "Demo Events":       {"pages_fetched": 3, "records_fetched": 6,  "retries": 0, "duplicates_removed": 1, "records_missing_key": 0, "already_seen_skipped": 0, "records_exported": 5},
+  "Demo Products":     {"pages_fetched": 3, "records_fetched": 5,  "retries": 0, "duplicates_removed": 0, "records_missing_key": 0, "already_seen_skipped": 0, "records_exported": 5},
+  "Demo Flaky Orders": {"pages_fetched": 3, "records_fetched": 11, "retries": 3, "duplicates_removed": 2, "records_missing_key": 1, "already_seen_skipped": 0, "records_exported": 8}
+}

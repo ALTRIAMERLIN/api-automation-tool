@@ -1,0 +1,9 @@
+[
+  ["id","name","active","balance","profile.tier","profile.since","notes"],
+  ["C-001","Acme Ltd",true,1250.75,"gold","2021-04-01",null],
+  ["C-002","Beta LLC",false,0,"silver","2022-11-15",null],
+  ["C-003","Gamma GmbH",true,-40.5,"bronze",null,null],
+  ["C-004","Delta & Sons",true,"98765432101234567","gold","2020-01-31",null],
+  ["C-005","EpsilonBell",false,12,null,null,null],
+  ["C-006","Zeta Co",true,3.14159,"silver","2023-06-30","[\"a\",{\"b\":1}]"]
+]
