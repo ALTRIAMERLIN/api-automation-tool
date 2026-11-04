@@ -146,7 +146,7 @@ def test_name_is_stripped():
     assert build_job_config({**BASE, "name": "  Demo Orders  "}).name == "Demo Orders"
 
 
-def test_name_length_error_message_has_no_secret_text():
+def test_name_length_error_message_is_exact():
     errors = _errors_for({**BASE, "name": "a" * 61})
     assert errors == [("name", "must be 1 to 60 characters")]
 
