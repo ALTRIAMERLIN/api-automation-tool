@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Run history - API Automation Tool{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Run history</h1>
+  {% if runs %}
+  <p class="muted">The latest {{ runs|length }} runs, newest first.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Job</th>
+          <th>Status</th>
+          <th>Started</th>
+          <th>Records exported</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <td>{{ run.id }}</td>
+          <td>{{ run.job_name }}</td>
+          <td><span class="badge badge-{{ run.status }}">{{ run.label }}</span></td>
+          <td>{{ run.started_at }}</td>
+          <td>{{ run.records_exported }}</td>
+          <td><a href="/runs/{{ run.id }}">Details</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No runs yet. Run a job from the Jobs page.</p>
+  {% endif %}
+</section>
+{% endblock %}

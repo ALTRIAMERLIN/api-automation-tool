@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run.id }} - API Automation Tool{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <h1>Run {{ run.id }}</h1>
+    <span class="badge badge-{{ run.status }}">{{ status_label }}</span>
+  </div>
+
+  <dl class="facts">
+    <dt>Job</dt><dd>{{ run.job_name }}</dd>
+    <dt>Started</dt><dd>{{ run.started_at }}</dd>
+    <dt>Finished</dt><dd>{{ run.finished_at or '-' }}</dd>
+    <dt>Started from</dt><dd>{{ trigger_label }}</dd>
+  </dl>
+
+  {% if run.error_type %}
+  <div class="error-box" role="alert">
+    <p><strong>{{ run.error_type }}</strong></p>
+    <p>{{ run.error_message }}</p>
+  </div>
+  {% endif %}
+
+  {% if run.message %}
+  <p>{{ run.message }}</p>
+  {% endif %}
+
+  <table class="counters">
+    <tbody>
+      {% for label, value in counters %}
+      <tr>
+        <th scope="row">{{ label }}</th>
+        <td>{{ value }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if run.warnings %}
+  <h2>Warnings</h2>
+  <ul class="warnings">
+    {% for warning in run.warnings %}
+    <li>{{ warning }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="form-actions">
+    {% if run.output_file %}
+    <a class="button" href="/runs/{{ run.id }}/download">Download</a>
+    {% endif %}
+    {% if can_run_again %}
+    <form method="post" action="/jobs/{{ run.job_id }}/run" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="button-secondary">Run again</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

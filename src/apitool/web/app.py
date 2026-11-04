@@ -9,15 +9,22 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from apitool.config import JobConfig, job_config_from_form, job_config_to_form
 from apitool.demo.jobs import setup_demo_jobs
-from apitool.errors import ConfigError
-from apitool.runner import preview_job, utc_now
+from apitool.errors import ConfigError, JobBusyError
+from apitool.export import safe_export_path
+from apitool.runner import preview_job, run_job, utc_now
 from apitool.storage import JobRecord, RunRecord, Storage
 
 WEB_DIR = Path(__file__).parent
@@ -56,6 +63,16 @@ NOTICES = {
 }
 
 STATUS_LABELS = {"success": "Success", "failed": "Failed", "running": "Running"}
+TRIGGER_LABELS = {"ui": "Web page", "cli": "Command line"}
+COUNTER_LABELS = [
+    ("pages_fetched", "Pages fetched"),
+    ("records_fetched", "Records fetched"),
+    ("retries", "Retries"),
+    ("duplicates_removed", "Duplicates removed"),
+    ("records_missing_key", "Skipped: key missing or empty"),
+    ("already_seen_skipped", "Skipped: already exported"),
+    ("records_exported", "Records exported"),
+]
 CREDENTIAL_REQUIRED_MESSAGE = "required for this authentication type"
 
 
@@ -128,6 +145,12 @@ def create_app(data_dir: Path) -> FastAPI:
     def render(request: Request, name: str, **context: object) -> HTMLResponse:
         context.setdefault("csrf_token", app.state.csrf_token)
         return templates.TemplateResponse(request, name, context)
+
+    def run_or_404(run_id: int) -> RunRecord:
+        run = storage.get_run(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="Not found.")
+        return run
 
     def job_or_404(job_id: int) -> JobRecord:
         job = storage.get_job(job_id)
@@ -219,6 +242,53 @@ def create_app(data_dir: Path) -> FastAPI:
         job = job_or_404(job_id)
         result = preview_job(storage, job_id)
         return render(request, "preview.html", job=job, result=result)
+
+    @app.post("/jobs/{job_id}/run")
+    def run_now(job_id: int, csrf_token: str = Form("")) -> RedirectResponse:
+        check_csrf(csrf_token)
+        job_or_404(job_id)
+        try:
+            result = run_job(storage, job_id, "ui")
+        except JobBusyError:
+            raise HTTPException(status_code=409, detail="This job is already running.") from None
+        return RedirectResponse(f"/runs/{result.run_id}", status_code=303)
+
+    @app.get("/runs", response_class=HTMLResponse)
+    def runs_page(request: Request) -> HTMLResponse:
+        runs = [
+            {
+                "id": run.id,
+                "job_name": run.job_name,
+                "status": run.status,
+                "label": STATUS_LABELS.get(run.status, run.status),
+                "started_at": run.started_at,
+                "records_exported": run.records_exported,
+            }
+            for run in storage.list_runs(limit=100)
+        ]
+        return render(request, "runs.html", runs=runs)
+
+    @app.get("/runs/{run_id}", response_class=HTMLResponse)
+    def run_page(request: Request, run_id: int) -> HTMLResponse:
+        run = run_or_404(run_id)
+        can_run_again = run.job_id is not None and storage.get_job(run.job_id) is not None
+        return render(
+            request,
+            "run.html",
+            run=run,
+            status_label=STATUS_LABELS.get(run.status, run.status),
+            trigger_label=TRIGGER_LABELS.get(run.trigger, run.trigger),
+            counters=[(label, getattr(run, field)) for field, label in COUNTER_LABELS],
+            can_run_again=can_run_again,
+        )
+
+    @app.get("/runs/{run_id}/download")
+    def download_export(run_id: int) -> FileResponse:
+        run = run_or_404(run_id)
+        path = safe_export_path(storage.exports_dir, run.output_file) if run.output_file else None
+        if path is None or not path.is_file():
+            raise HTTPException(status_code=404, detail="Not found.")
+        return FileResponse(path, filename=run.output_file)
 
     # Job create, edit, delete and sync-state reset
 
