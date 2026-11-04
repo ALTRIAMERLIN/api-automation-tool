@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% macro field_errors(errors, name) %}
+  {% for message in errors.get(name, []) %}
+  <p class="field-error">{{ message }}</p>
+  {% endfor %}
+{% endmacro %}
+{% block title %}{{ 'New job' if mode == 'create' else 'Edit job' }} - API Automation Tool{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ 'New job' if mode == 'create' else 'Edit job' }}</h1>
+
+  {% if errors %}
+  <div class="error-box" role="alert">
+    <p>Please fix the highlighted fields.</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ action }}" class="job-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <fieldset>
+      <legend>Connection</legend>
+      <div class="field">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" maxlength="60" value="{{ values['name'] }}" required>
+        <p class="help">1 to 60 letters, digits, spaces, _ or -. Must be unique.</p>
+        {{ field_errors(errors, 'name') }}
+      </div>
+      <div class="field">
+        <label for="url">API URL</label>
+        <input id="url" name="url" type="text" value="{{ values['url'] }}" required>
+        <p class="help">Full http or https address of the endpoint. No user name or password in it.</p>
+        {{ field_errors(errors, 'url') }}
+      </div>
+      <div class="field">
+        <label for="query_params">Query parameters</label>
+        <textarea id="query_params" name="query_params" rows="3">{{ values['query_params'] }}</textarea>
+        <p class="help">One key=value per line. Sent with every request.</p>
+        {{ field_errors(errors, 'query_params') }}
+      </div>
+      <div class="field">
+        <label for="headers">Extra headers</label>
+        <textarea id="headers" name="headers" rows="3">{{ values['headers'] }}</textarea>
+        <p class="help">One Name: value per line. Authentication overrides a header with the same name.</p>
+        {{ field_errors(errors, 'headers') }}
+      </div>
+      <div class="field">
+        <label for="timeout_seconds">Timeout (seconds)</label>
+        <input id="timeout_seconds" name="timeout_seconds" type="text" inputmode="numeric" value="{{ values['timeout_seconds'] }}">
+        <p class="help">Wait time for each request, 1 to 120.</p>
+        {{ field_errors(errors, 'timeout_seconds') }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Authentication</legend>
+      <div class="field">
+        <label for="auth_type">Authentication type</label>
+        <select id="auth_type" name="auth_type">
+          <option value="none" {% if values['auth_type'] == 'none' %}selected{% endif %}>None</option>
+          <option value="api_key_header" {% if values['auth_type'] == 'api_key_header' %}selected{% endif %}>API key in a header</option>
+          <option value="api_key_query" {% if values['auth_type'] == 'api_key_query' %}selected{% endif %}>API key in the query string</option>
+          <option value="bearer" {% if values['auth_type'] == 'bearer' %}selected{% endif %}>Bearer token</option>
+          <option value="basic" {% if values['auth_type'] == 'basic' %}selected{% endif %}>Basic (user name and password)</option>
+        </select>
+        <p class="help">How the tool identifies itself to the API.</p>
+        {{ field_errors(errors, 'auth_type') }}
+      </div>
+      <div class="field" data-show-for="api_key_header api_key_query">
+        <label for="auth_key_name">Key name</label>
+        <input id="auth_key_name" name="auth_key_name" type="text" value="{{ values['auth_key_name'] }}">
+        <p class="help">Header name for a header key, or query parameter name for a query key.</p>
+        {{ field_errors(errors, 'auth_key_name') }}
+      </div>
+      <div class="field" data-show-for="basic">
+        <label for="auth_username">User name</label>
+        <input id="auth_username" name="auth_username" type="text" value="{{ values['auth_username'] }}">
+        <p class="help">User name for basic authentication. Cannot contain a colon.</p>
+        {{ field_errors(errors, 'auth_username') }}
+      </div>
+      <div class="field" data-show-for="api_key_header api_key_query bearer basic">
+        <label for="secret">Secret</label>
+        <input id="secret" name="secret" type="password" autocomplete="new-password" value="">
+        {% if mode == 'edit' and has_secret %}
+        <p class="help">A secret is saved. Leave blank to keep it.</p>
+        {% else %}
+        <p class="help">Stored in the local database. Type env:NAME to read it from an environment variable at run time.</p>
+        {% endif %}
+        {{ field_errors(errors, 'secret') }}
+      </div>
+      {% if mode == 'edit' %}
+      <div class="field" data-show-for="api_key_header api_key_query bearer basic">
+        <label class="checkbox"><input type="checkbox" name="clear_secret"> Remove the saved secret</label>
+      </div>
+      {% endif %}
+    </fieldset>
+
+    <fieldset>
+      <legend>Pagination</legend>
+      <div class="field">
+        <label for="pagination_type">Pagination type</label>
+        <select id="pagination_type" name="pagination_type">
+          <option value="none" {% if values['pagination_type'] == 'none' %}selected{% endif %}>None (one request)</option>
+          <option value="page" {% if values['pagination_type'] == 'page' %}selected{% endif %}>Page number</option>
+          <option value="offset" {% if values['pagination_type'] == 'offset' %}selected{% endif %}>Offset and limit</option>
+          <option value="cursor" {% if values['pagination_type'] == 'cursor' %}selected{% endif %}>Cursor</option>
+          <option value="next_url" {% if values['pagination_type'] == 'next_url' %}selected{% endif %}>Next page URL in the response</option>
+        </select>
+        <p class="help">How the tool asks the API for the next page.</p>
+        {{ field_errors(errors, 'pagination_type') }}
+      </div>
+      <div class="field" data-show-for="page">
+        <label for="page_param">Page parameter</label>
+        <input id="page_param" name="page_param" type="text" value="{{ values['page_param'] }}">
+        <p class="help">Query parameter that holds the page number.</p>
+        {{ field_errors(errors, 'page_param') }}
+      </div>
+      <div class="field" data-show-for="page">
+        <label for="start_page">First page number</label>
+        <input id="start_page" name="start_page" type="text" inputmode="numeric" value="{{ values['start_page'] }}">
+        <p class="help">Usually 1. Can be 0 for APIs that count from zero.</p>
+        {{ field_errors(errors, 'start_page') }}
+      </div>
+      <div class="field" data-show-for="page cursor">
+        <label for="page_size_param">Page size parameter</label>
+        <input id="page_size_param" name="page_size_param" type="text" value="{{ values['page_size_param'] }}">
+        <p class="help">Query parameter for the page size. Blank means do not send it (cursor only).</p>
+        {{ field_errors(errors, 'page_size_param') }}
+      </div>
+      <div class="field" data-show-for="offset">
+        <label for="offset_param">Offset parameter</label>
+        <input id="offset_param" name="offset_param" type="text" value="{{ values['offset_param'] }}">
+        {{ field_errors(errors, 'offset_param') }}
+      </div>
+      <div class="field" data-show-for="offset">
+        <label for="limit_param">Limit parameter</label>
+        <input id="limit_param" name="limit_param" type="text" value="{{ values['limit_param'] }}">
+        {{ field_errors(errors, 'limit_param') }}
+      </div>
+      <div class="field" data-show-for="cursor">
+        <label for="cursor_param">Cursor parameter</label>
+        <input id="cursor_param" name="cursor_param" type="text" value="{{ values['cursor_param'] }}">
+        {{ field_errors(errors, 'cursor_param') }}
+      </div>
+      <div class="field" data-show-for="cursor">
+        <label for="cursor_path">Next cursor path</label>
+        <input id="cursor_path" name="cursor_path" type="text" value="{{ values['cursor_path'] }}">
+        <p class="help">Dotted path to the next cursor in each response, for example meta.next.</p>
+        {{ field_errors(errors, 'cursor_path') }}
+      </div>
+      <div class="field" data-show-for="next_url">
+        <label for="next_url_path">Next URL path</label>
+        <input id="next_url_path" name="next_url_path" type="text" value="{{ values['next_url_path'] }}">
+        <p class="help">Dotted path to the next page URL, for example links.next.</p>
+        {{ field_errors(errors, 'next_url_path') }}
+      </div>
+      <div class="field" data-show-for="page offset cursor next_url">
+        <label for="page_size">Page size</label>
+        <input id="page_size" name="page_size" type="text" inputmode="numeric" value="{{ values['page_size'] }}">
+        <p class="help">Records per request, 1 to 1000.</p>
+        {{ field_errors(errors, 'page_size') }}
+      </div>
+      <div class="field" data-show-for="page offset cursor next_url">
+        <label for="max_pages">Maximum pages</label>
+        <input id="max_pages" name="max_pages" type="text" inputmode="numeric" value="{{ values['max_pages'] }}">
+        <p class="help">Stops after this many pages, 1 to 1000.</p>
+        {{ field_errors(errors, 'max_pages') }}
+      </div>
+      <div class="field">
+        <label for="records_path">Records path</label>
+        <input id="records_path" name="records_path" type="text" value="{{ values['records_path'] }}">
+        <p class="help">Dotted path to the list of records. Blank means the response itself is the list.</p>
+        {{ field_errors(errors, 'records_path') }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Output</legend>
+      <div class="field">
+        <label for="fields">Columns</label>
+        <input id="fields" name="fields" type="text" value="{{ values['fields'] }}">
+        <p class="help">Comma-separated columns to export, in order. Blank exports every column.</p>
+        {{ field_errors(errors, 'fields') }}
+      </div>
+      <div class="field">
+        <label for="renames">Rename columns</label>
+        <textarea id="renames" name="renames" rows="3">{{ values['renames'] }}</textarea>
+        <p class="help">One old=new per line.</p>
+        {{ field_errors(errors, 'renames') }}
+      </div>
+      <div class="field">
+        <label for="dedup_key">Duplicate key column</label>
+        <input id="dedup_key" name="dedup_key" type="text" value="{{ values['dedup_key'] }}">
+        <p class="help">Column that identifies a record, for example id. Blank keeps duplicates.</p>
+        {{ field_errors(errors, 'dedup_key') }}
+      </div>
+      <div class="field">
+        <label class="checkbox">
+          <input type="checkbox" name="incremental" {% if values['incremental'] == 'on' %}checked{% endif %}>
+          Export only new records
+        </label>
+        <p class="help">Skips records that an earlier successful run exported. Needs a duplicate key column.</p>
+        {{ field_errors(errors, 'incremental') }}
+      </div>
+      <div class="field">
+        <label for="export_format">Export format</label>
+        <select id="export_format" name="export_format">
+          <option value="csv" {% if values['export_format'] == 'csv' %}selected{% endif %}>CSV</option>
+          <option value="xlsx" {% if values['export_format'] == 'xlsx' %}selected{% endif %}>Excel (.xlsx)</option>
+        </select>
+        {{ field_errors(errors, 'export_format') }}
+      </div>
+    </fieldset>
+
+    <div class="form-actions">
+      <button type="submit" class="button">{{ 'Create job' if mode == 'create' else 'Save job' }}</button>
+      <a href="/">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

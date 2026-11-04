@@ -5,6 +5,7 @@ import secrets
 from collections.abc import Awaitable, Callable
 from http import HTTPStatus
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request, Response
@@ -13,9 +14,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from apitool.config import JobConfig, job_config_from_form, job_config_to_form
 from apitool.demo.jobs import setup_demo_jobs
+from apitool.errors import ConfigError
 from apitool.runner import utc_now
-from apitool.storage import RunRecord, Storage
+from apitool.storage import JobRecord, RunRecord, Storage
 
 WEB_DIR = Path(__file__).parent
 ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost"})
@@ -53,6 +56,7 @@ NOTICES = {
 }
 
 STATUS_LABELS = {"success": "Success", "failed": "Failed", "running": "Running"}
+CREDENTIAL_REQUIRED_MESSAGE = "required for this authentication type"
 
 
 def _message_for(status: int, detail: object) -> str:
@@ -71,7 +75,7 @@ def _host_allowed(host_header: str) -> bool:
     return hostname in ALLOWED_HOSTS
 
 
-def _job_rows(storage: Storage) -> list[dict]:
+def _job_rows(storage: Storage) -> list[dict[str, Any]]:
     rows = []
     for job in storage.list_jobs():
         last: RunRecord | None = storage.last_run_for_job(job.id)
@@ -84,6 +88,18 @@ def _job_rows(storage: Storage) -> list[dict]:
             }
         )
     return rows
+
+
+def _form_values(form: Any) -> dict[str, str]:
+    """Plain string values from a submitted form. File uploads are not used by any form."""
+    return {key: value for key, value in form.items() if isinstance(value, str)}
+
+
+def _errors_by_field(errors: list[tuple[str, str]]) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = {}
+    for field, message in errors:
+        grouped.setdefault(field, []).append(message)
+    return grouped
 
 
 def create_app(data_dir: Path) -> FastAPI:
@@ -113,6 +129,36 @@ def create_app(data_dir: Path) -> FastAPI:
         context.setdefault("csrf_token", app.state.csrf_token)
         return templates.TemplateResponse(request, name, context)
 
+    def job_or_404(job_id: int) -> JobRecord:
+        job = storage.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Not found.")
+        return job
+
+    def job_form(
+        request: Request,
+        *,
+        mode: str,
+        job_id: int | None,
+        values: dict[str, str],
+        errors: dict[str, list[str]],
+        status_code: int = 200,
+    ) -> HTMLResponse:
+        has_secret = job_id is not None and storage.get_secret(job_id) is not None
+        action = "/jobs" if job_id is None else f"/jobs/{job_id}"
+        response = render(
+            request,
+            "job_form.html",
+            mode=mode,
+            job_id=job_id,
+            action=action,
+            values=values,
+            errors=errors,
+            has_secret=has_secret,
+        )
+        response.status_code = status_code
+        return response
+
     @app.middleware("http")
     async def guard(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -140,6 +186,8 @@ def create_app(data_dir: Path) -> FastAPI:
     def healthz() -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
+    # Jobs page and demo data
+
     @app.get("/", response_class=HTMLResponse)
     def jobs_page(request: Request) -> HTMLResponse:
         notice = NOTICES.get(request.query_params.get("notice", ""))
@@ -165,4 +213,99 @@ def create_app(data_dir: Path) -> FastAPI:
         storage.set_setting("demo_dataset_version", version)
         return RedirectResponse(f"/?notice=dataset_v{version}", status_code=303)
 
+    # Job create, edit, delete and sync-state reset
+
+    @app.get("/jobs/new", response_class=HTMLResponse)
+    def new_job_page(request: Request) -> HTMLResponse:
+        blank = JobConfig.model_construct(name="", url="")
+        return job_form(
+            request, mode="create", job_id=None, values=job_config_to_form(blank), errors={}
+        )
+
+    @app.post("/jobs")
+    async def create_job(request: Request) -> Response:
+        form = _form_values(await request.form())
+        check_csrf(form.get("csrf_token"))
+        secret = form.get("secret", "")
+        try:
+            cfg = job_config_from_form(form)
+            if cfg.auth_type != "none" and not secret:
+                raise ConfigError([("secret", CREDENTIAL_REQUIRED_MESSAGE)])
+            job_id = storage.create_job(cfg, utc_now())
+        except ConfigError as err:
+            return job_form(
+                request,
+                mode="create",
+                job_id=None,
+                values=_entered(form),
+                errors=_errors_by_field(err.errors),
+                status_code=400,
+            )
+        if cfg.auth_type != "none":
+            storage.set_secret(job_id, secret)
+        return RedirectResponse("/?notice=job_created", status_code=303)
+
+    @app.get("/jobs/{job_id}/edit", response_class=HTMLResponse)
+    def edit_job_page(request: Request, job_id: int) -> HTMLResponse:
+        job = job_or_404(job_id)
+        return job_form(
+            request,
+            mode="edit",
+            job_id=job_id,
+            values=job_config_to_form(job.config),
+            errors={},
+        )
+
+    @app.post("/jobs/{job_id}")
+    async def update_job(request: Request, job_id: int) -> Response:
+        job_or_404(job_id)
+        form = _form_values(await request.form())
+        check_csrf(form.get("csrf_token"))
+        new_secret = form.get("secret", "")
+        clear_secret = form.get("clear_secret") == "on"
+        try:
+            cfg = job_config_from_form(form)
+            if cfg.auth_type != "none":
+                kept = None if clear_secret else storage.get_secret(job_id)
+                if not (new_secret or kept):
+                    raise ConfigError([("secret", CREDENTIAL_REQUIRED_MESSAGE)])
+            state_reset = storage.update_job(job_id, cfg, utc_now())
+        except ConfigError as err:
+            return job_form(
+                request,
+                mode="edit",
+                job_id=job_id,
+                values=_entered(form),
+                errors=_errors_by_field(err.errors),
+                status_code=400,
+            )
+        if cfg.auth_type == "none" or clear_secret:
+            storage.delete_secret(job_id)
+        if cfg.auth_type != "none" and new_secret:
+            storage.set_secret(job_id, new_secret)
+        notice = "state_reset_auto" if state_reset else "job_updated"
+        return RedirectResponse(f"/?notice={notice}", status_code=303)
+
+    @app.post("/jobs/{job_id}/delete")
+    def delete_job(job_id: int, csrf_token: str = Form("")) -> RedirectResponse:
+        check_csrf(csrf_token)
+        job_or_404(job_id)
+        storage.delete_job(job_id)
+        return RedirectResponse("/?notice=job_deleted", status_code=303)
+
+    @app.post("/jobs/{job_id}/reset-state")
+    def reset_job_state(job_id: int, csrf_token: str = Form("")) -> RedirectResponse:
+        check_csrf(csrf_token)
+        job_or_404(job_id)
+        storage.reset_state(job_id)
+        return RedirectResponse("/?notice=state_reset", status_code=303)
+
     return app
+
+
+def _entered(form: dict[str, str]) -> dict[str, str]:
+    """Values to show again after a failed save. The secret is never echoed back."""
+    values = dict(form)
+    values.pop("secret", None)
+    values.pop("csrf_token", None)
+    return values
