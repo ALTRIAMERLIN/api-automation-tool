@@ -13,9 +13,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from apitool.config import JobConfig, build_job_config
-from apitool.errors import ConfigError, JobBusyError
+from apitool.errors import ConfigError, JobBusyError, JobNotFoundError
 from apitool.timeutil import format_ts
 
+# A change to any of these makes the stored sync state invalid (SPEC 10, automatic reset).
+STATE_FIELDS = ("url", "records_path", "dedup_key", "incremental")
 STALE_RUN_AFTER = timedelta(hours=2)
 INTERRUPTED_MESSAGE = "run did not finish (process stopped)"
 BUSY_MESSAGE = "This job is already running."
@@ -219,17 +221,37 @@ class Storage:
         return [_job_from_row(row) for row in rows]
 
     def update_job(self, job_id: int, cfg: JobConfig, now: datetime) -> bool:
-        """Save a changed config. Returns True when the sync state was reset (added in T18)."""
+        """Save an edited config. Returns True when the sync state was reset (SPEC 10)."""
         try:
             with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT config_json FROM jobs WHERE id = ?", (job_id,)
+                ).fetchone()
+                if row is None:
+                    raise JobNotFoundError(f"job {job_id} not found")
+                old = build_job_config(json.loads(row["config_json"]))
+                state_reset = any(getattr(old, f) != getattr(cfg, f) for f in STATE_FIELDS)
                 conn.execute(
                     "UPDATE jobs SET name = ?, name_key = ?, config_json = ?, updated_at = ? "
                     "WHERE id = ?",
                     (cfg.name, cfg.name.lower(), cfg.model_dump_json(), format_ts(now), job_id),
                 )
+                if state_reset:
+                    conn.execute("DELETE FROM seen_keys WHERE job_id = ?", (job_id,))
         except sqlite3.IntegrityError:
             raise ConfigError([_DUPLICATE_NAME]) from None
-        return False
+        return state_reset
+
+    # Sync state
+
+    def get_seen_keys(self, job_id: int) -> set[str]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT key FROM seen_keys WHERE job_id = ?", (job_id,)).fetchall()
+        return {row["key"] for row in rows}
+
+    def reset_state(self, job_id: int) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM seen_keys WHERE job_id = ?", (job_id,))
 
     def delete_job(self, job_id: int) -> None:
         with self._connect() as conn:
