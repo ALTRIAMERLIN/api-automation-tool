@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from apitool.demo.data import CUSTOMERS, EVENTS_PAGES, ORDERS_V1, ORDERS_V2, PRODUCTS_PAGES
+from apitool.http_client import MAX_RESPONSE_BYTES
 
 # Public demo credential for the built-in fake API. Not a secret.
 # DEMO_BASIC_AUTH is base64 of demo:demo-pass.
@@ -14,7 +15,7 @@ DEMO_BEARER_TOKEN = "demo-token-456"
 DEMO_BASIC_AUTH = "Basic ZGVtbzpkZW1vLXBhc3M="
 
 _INT_RE = re.compile(r"-?\d+")
-_MAX_BODY_BYTES = 10 * 1024 * 1024 + 1
+_MAX_BODY_BYTES = MAX_RESPONSE_BYTES + 1
 _CURSOR_PAGES = {None: 0, "c_2": 1, "c_4": 2}
 
 
