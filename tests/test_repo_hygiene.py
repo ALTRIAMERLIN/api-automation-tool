@@ -19,12 +19,14 @@ TEST_ONLY = ["super-secret", "query-secret", "zz-secret", "ENTIRE_TOKEN"]
 FORBIDDEN = [*TEST_ONLY, "BEGIN PRIVATE KEY", "ghp_", "github_pat_"]
 
 # Strings removed from a file before it is checked, per the AC-46 exception list
-# (amended by owner decision, Escalation 2, 2026-11-04). docs/ACCEPTANCE.md holds the rule
-# text itself, so every forbidden string is removed there; see build-notes.md.
+# (amended by owner decision, Escalation 2, 2026-11-04).
+# docs/ACCEPTANCE.md quotes the rule text, where the three secret-format strings appear in
+# backticks. Only those backticked quotes are removed there, so a bare leaked token still fails.
+RULE_TEXT = ["BEGIN PRIVATE KEY", "ghp_", "github_pat_"]
 EXCEPTIONS = {
     "docs/PLAN.md": ["ENTIRE_TOKEN_STORE"],
-    "docs/REVIEW.md": ["ENTIRE_TOKEN", *TEST_ONLY],
-    "docs/ACCEPTANCE.md": FORBIDDEN,
+    "docs/REVIEW.md": TEST_ONLY,
+    "docs/ACCEPTANCE.md": [*TEST_ONLY, *(f"`{s}`" for s in RULE_TEXT)],
 }
 TESTS_EXCEPTIONS = TEST_ONLY
 
