@@ -155,12 +155,12 @@ class DemoApi:
         return _json(404, {"error": "not found"})
 
 
-def _orders_page(self_orders: list[dict[str, Any]], params: httpx.QueryParams) -> httpx.Response:
+def _orders_page(orders: list[dict[str, Any]], params: httpx.QueryParams) -> httpx.Response:
     page = _int_param(params, "page", 1, 1, 1_000_000)
     per_page = _int_param(params, "per_page", 4, 1, 100)
     start = (page - 1) * per_page
     body = {
-        "data": self_orders[start : start + per_page],
-        "meta": {"page": page, "per_page": per_page, "total": len(self_orders)},
+        "data": orders[start : start + per_page],
+        "meta": {"page": page, "per_page": per_page, "total": len(orders)},
     }
     return _json(200, body)
