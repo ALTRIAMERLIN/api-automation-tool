@@ -8,13 +8,17 @@ import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from apitool.config import JobConfig, build_job_config
-from apitool.errors import ConfigError
+from apitool.errors import ConfigError, JobBusyError
 from apitool.timeutil import format_ts
+
+STALE_RUN_AFTER = timedelta(hours=2)
+INTERRUPTED_MESSAGE = "run did not finish (process stopped)"
+BUSY_MESSAGE = "This job is already running."
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -74,6 +78,76 @@ class JobRecord:
     updated_at: str
 
 
+@dataclass
+class RunStats:
+    pages_fetched: int = 0
+    records_fetched: int = 0
+    retries: int = 0
+    duplicates_removed: int = 0
+    records_missing_key: int = 0
+    already_seen_skipped: int = 0
+    records_exported: int = 0
+
+
+@dataclass
+class RunRecord:
+    id: int
+    job_id: int | None
+    job_name: str
+    trigger: str
+    status: str
+    started_at: str
+    finished_at: str | None
+    pages_fetched: int
+    records_fetched: int
+    retries: int
+    duplicates_removed: int
+    records_missing_key: int
+    already_seen_skipped: int
+    records_exported: int
+    output_file: str | None
+    message: str | None
+    warnings: list[str] = field(default_factory=list)
+    error_type: str | None = None
+    error_message: str | None = None
+
+
+def _run_from_row(row: sqlite3.Row) -> RunRecord:
+    return RunRecord(
+        id=row["id"],
+        job_id=row["job_id"],
+        job_name=row["job_name"],
+        trigger=row["trigger"],
+        status=row["status"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+        pages_fetched=row["pages_fetched"],
+        records_fetched=row["records_fetched"],
+        retries=row["retries"],
+        duplicates_removed=row["duplicates_removed"],
+        records_missing_key=row["records_missing_key"],
+        already_seen_skipped=row["already_seen_skipped"],
+        records_exported=row["records_exported"],
+        output_file=row["output_file"],
+        message=row["message"],
+        warnings=json.loads(row["warnings_json"]),
+        error_type=row["error_type"],
+        error_message=row["error_message"],
+    )
+
+
+def _stats_params(stats: RunStats) -> tuple[int, ...]:
+    return (
+        stats.pages_fetched,
+        stats.records_fetched,
+        stats.retries,
+        stats.duplicates_removed,
+        stats.records_missing_key,
+        stats.already_seen_skipped,
+        stats.records_exported,
+    )
+
+
 def _job_from_row(row: sqlite3.Row) -> JobRecord:
     return JobRecord(
         id=row["id"],
@@ -98,8 +172,9 @@ class Storage:
             conn.executescript(_SCHEMA)
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        conn = sqlite3.connect(self.db_path, timeout=10)
+    def _connect(self, *, autocommit: bool = False) -> Iterator[sqlite3.Connection]:
+        """Open one connection. With autocommit, the caller issues BEGIN and COMMIT itself."""
+        conn = sqlite3.connect(self.db_path, timeout=10, isolation_level=None if autocommit else "")
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("PRAGMA foreign_keys=ON")
@@ -193,3 +268,112 @@ class Storage:
                 "ON CONFLICT(name) DO UPDATE SET value = excluded.value",
                 (name, value),
             )
+
+    # Runs
+
+    def start_run(self, job_id: int, job_name: str, trigger: str, now: datetime) -> int:
+        """Insert a running run. Stale runs are marked failed first (SPEC 12.1 step 2).
+
+        Raises JobBusyError when a run of this job is still running.
+        """
+        started = format_ts(now)
+        stale_before = format_ts(now - STALE_RUN_AFTER)
+        with self._connect(autocommit=True) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "UPDATE runs SET status = 'failed', error_type = 'Interrupted', "
+                "error_message = ?, finished_at = ? "
+                "WHERE job_id = ? AND status = 'running' AND started_at < ?",
+                (INTERRUPTED_MESSAGE, started, job_id, stale_before),
+            )
+            busy = conn.execute(
+                "SELECT 1 FROM runs WHERE job_id = ? AND status = 'running' LIMIT 1",
+                (job_id,),
+            ).fetchone()
+            if busy:
+                conn.execute("COMMIT")
+                raise JobBusyError(BUSY_MESSAGE)
+            cursor = conn.execute(
+                "INSERT INTO runs (job_id, job_name, trigger, status, started_at) "
+                "VALUES (?, ?, ?, 'running', ?)",
+                (job_id, job_name, trigger, started),
+            )
+            conn.execute("COMMIT")
+            return int(cursor.lastrowid)
+
+    def finish_run_success(
+        self,
+        run_id: int,
+        stats: RunStats,
+        output_file: str | None,
+        message: str,
+        warnings: list[str],
+        finished_at: datetime,
+        job_id: int,
+        exported_keys: list[str],
+        incremental: bool,
+    ) -> None:
+        """Mark a run successful. Exported keys are committed in the same transaction (SPEC 10)."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE runs SET status = 'success', pages_fetched = ?, records_fetched = ?, "
+                "retries = ?, duplicates_removed = ?, records_missing_key = ?, "
+                "already_seen_skipped = ?, records_exported = ?, output_file = ?, message = ?, "
+                "warnings_json = ?, finished_at = ?, error_type = NULL, error_message = NULL "
+                "WHERE id = ?",
+                (
+                    *_stats_params(stats),
+                    output_file,
+                    message,
+                    json.dumps(warnings),
+                    format_ts(finished_at),
+                    run_id,
+                ),
+            )
+            if incremental:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO seen_keys (job_id, key, first_run_id) VALUES (?, ?, ?)",
+                    [(job_id, key, run_id) for key in exported_keys],
+                )
+
+    def finish_run_failed(
+        self,
+        run_id: int,
+        stats: RunStats,
+        error_type: str,
+        error_message: str,
+        finished_at: datetime,
+    ) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE runs SET status = 'failed', pages_fetched = ?, records_fetched = ?, "
+                "retries = ?, duplicates_removed = ?, records_missing_key = ?, "
+                "already_seen_skipped = ?, records_exported = ?, output_file = NULL, "
+                "error_type = ?, error_message = ?, finished_at = ? WHERE id = ?",
+                (
+                    *_stats_params(stats),
+                    error_type,
+                    error_message,
+                    format_ts(finished_at),
+                    run_id,
+                ),
+            )
+
+    def get_run(self, run_id: int) -> RunRecord | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        return _run_from_row(row) if row else None
+
+    def list_runs(self, limit: int = 100) -> list[RunRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM runs ORDER BY started_at DESC, id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [_run_from_row(row) for row in rows]
+
+    def last_run_for_job(self, job_id: int) -> RunRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM runs WHERE job_id = ? ORDER BY id DESC LIMIT 1", (job_id,)
+            ).fetchone()
+        return _run_from_row(row) if row else None
