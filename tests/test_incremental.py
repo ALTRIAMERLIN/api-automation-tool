@@ -108,6 +108,12 @@ def test_export_failure_commits_no_state(store, orders_id, monkeypatch):
     assert failed.error_type == "ExportError"
     assert store.get_seen_keys(orders_id) == set()
 
+    # Counts reached before the export failed are kept. Nothing was exported.
+    failed_run = store.get_run(failed.run_id)
+    assert (failed_run.pages_fetched, failed_run.records_fetched) == (3, 11)
+    assert (failed_run.duplicates_removed, failed_run.records_missing_key) == (2, 1)
+    assert failed_run.records_exported == 0
+
     monkeypatch.undo()
     recovered = _run(store, orders_id)
     assert recovered.status == "success"

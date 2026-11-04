@@ -127,12 +127,11 @@ def _union_columns(flat: list[dict]) -> list[str]:
     return columns
 
 
-def _failure_stats(progress: Progress, fetcher: Fetcher | None) -> RunStats:
-    return RunStats(
-        pages_fetched=progress.pages_fetched,
-        records_fetched=progress.records_fetched,
-        retries=fetcher.retries if fetcher is not None else 0,
-    )
+def _sync_progress(stats: RunStats, progress: Progress, fetcher: Fetcher | None) -> None:
+    """Copy the fetch counters into the run stats, so a failed run keeps the counts it reached."""
+    stats.pages_fetched = progress.pages_fetched
+    stats.records_fetched = progress.records_fetched
+    stats.retries = fetcher.retries if fetcher is not None else 0
 
 
 def run_job(
@@ -162,6 +161,7 @@ def run_job(
     _logger.info("run %d started job=%s", run_id, job.name)
 
     progress = Progress()
+    stats = RunStats()
     fetcher: Fetcher | None = None
     redaction: list[str] = []
     try:
@@ -175,19 +175,14 @@ def run_job(
         fetcher = Fetcher(cfg, secret, url_transport, sleep_fn)
         with fetcher:
             fetched = pagination.fetch_all(cfg, fetcher, progress)
+        _sync_progress(stats, progress, fetcher)
 
         stored_keys = storage.get_seen_keys(job_id) if cfg.incremental else set()
         built = pipeline.build_rows(fetched.records, cfg, stored_keys)
+        stats.duplicates_removed = built.duplicates_removed
+        stats.records_missing_key = built.records_missing_key
+        stats.already_seen_skipped = built.already_seen_skipped
         warnings = [*fetched.warnings, *built.warnings]
-        stats = RunStats(
-            pages_fetched=progress.pages_fetched,
-            records_fetched=progress.records_fetched,
-            retries=fetcher.retries,
-            duplicates_removed=built.duplicates_removed,
-            records_missing_key=built.records_missing_key,
-            already_seen_skipped=built.already_seen_skipped,
-            records_exported=built.records_exported,
-        )
 
         output_file: str | None = None
         if built.records_exported == 0:
@@ -200,6 +195,8 @@ def run_job(
             else:
                 warnings.extend(export.write_csv(path, built.header, built.rows))
             message = f"Exported {built.records_exported} records to {output_file}"
+        # Only a run whose file is in place counts as having exported records.
+        stats.records_exported = built.records_exported
 
         for warning in warnings:
             _logger.warning("run %d warning: %s", run_id, warning)
@@ -222,16 +219,16 @@ def run_job(
     except AppError as err:
         message = redact(err.message, redaction)
         error_type = type(err).__name__
-        storage.finish_run_failed(
-            run_id, _failure_stats(progress, fetcher), error_type, message, now_fn()
-        )
+        _sync_progress(stats, progress, fetcher)
+        storage.finish_run_failed(run_id, stats, error_type, message, now_fn())
         _logger.error("run %d failed: %s: %s", run_id, error_type, message)
         return RunResult(run_id, "failed", None, [], error_type, message, err.exit_code)
 
     except Exception as exc:
+        _sync_progress(stats, progress, fetcher)
         storage.finish_run_failed(
             run_id,
-            _failure_stats(progress, fetcher),
+            stats,
             "InternalError",
             f"unexpected error: {type(exc).__name__}",
             now_fn(),
