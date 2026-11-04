@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Preview {{ job.name }} - API Automation Tool{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <h1>Preview: {{ job.name }}</h1>
+    <a href="/">Back to jobs</a>
+  </div>
+
+  {% if result.error_type %}
+  <div class="error-box" role="alert">
+    <p><strong>{{ result.error_type }}</strong></p>
+    <p>{{ result.error_message }}</p>
+  </div>
+  {% else %}
+  <p>Page 1 returned {{ result.records_count }} records.</p>
+  {% if result.columns %}
+  <p class="muted">Columns are the flattened fields found on this page. The first {{ result.rows|length }} records are shown.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for column in result.columns %}
+          <th>{{ column }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in result.rows %}
+        <tr>
+          {% for value in row %}
+          <td>{{ value }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

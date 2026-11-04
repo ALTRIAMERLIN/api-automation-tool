@@ -193,3 +193,78 @@ h2 {
 .actions .link-button {
   margin-right: 12px;
 }
+
+.error-box {
+  background: #fdf2f2;
+  border: 1px solid #f5c2c2;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  color: var(--failed);
+}
+
+.error-box p {
+  margin: 4px 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.field-error {
+  color: var(--failed);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.job-form fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 18px;
+  padding: 12px 16px 6px;
+}
+
+.job-form legend {
+  font-weight: 700;
+  padding: 0 6px;
+}
+
+.job-form .field {
+  margin-bottom: 14px;
+}
+
+.job-form label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.job-form label.checkbox {
+  display: inline;
+  font-weight: 400;
+}
+
+.job-form input[type="text"],
+.job-form input[type="password"],
+.job-form select,
+.job-form textarea {
+  width: 100%;
+  max-width: 560px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  background: #ffffff;
+}
+
+.help {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}

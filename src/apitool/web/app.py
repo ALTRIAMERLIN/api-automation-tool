@@ -17,7 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from apitool.config import JobConfig, job_config_from_form, job_config_to_form
 from apitool.demo.jobs import setup_demo_jobs
 from apitool.errors import ConfigError
-from apitool.runner import utc_now
+from apitool.runner import preview_job, utc_now
 from apitool.storage import JobRecord, RunRecord, Storage
 
 WEB_DIR = Path(__file__).parent
@@ -212,6 +212,13 @@ def create_app(data_dir: Path) -> FastAPI:
             raise HTTPException(status_code=400, detail="Dataset version must be 1 or 2.")
         storage.set_setting("demo_dataset_version", version)
         return RedirectResponse(f"/?notice=dataset_v{version}", status_code=303)
+
+    @app.post("/jobs/{job_id}/preview", response_class=HTMLResponse)
+    def preview_page(request: Request, job_id: int, csrf_token: str = Form("")) -> HTMLResponse:
+        check_csrf(csrf_token)
+        job = job_or_404(job_id)
+        result = preview_job(storage, job_id)
+        return render(request, "preview.html", job=job, result=result)
 
     # Job create, edit, delete and sync-state reset
 
