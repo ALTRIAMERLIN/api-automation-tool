@@ -2,6 +2,8 @@
 
 import csv
 import os
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -86,3 +88,28 @@ def write_xlsx(path: Path, header: list[str], rows: list[list[Any]]) -> list[str
             f"excel_truncated: {truncated} cell values longer than 32767 characters were truncated"
         )
     return warnings
+
+
+def slugify(name: str) -> str:
+    """Lowercase, collapse each run of non [a-z0-9] characters to '-', trim '-' (SPEC 11.1)."""
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return slug or "job"
+
+
+def export_filename(job_name: str, started_at: datetime, run_id: int, fmt: str) -> str:
+    """{slug}_{YYYYMMDD-HHMMSS in UTC}_run{id}.{fmt}"""
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=UTC)
+    stamp = started_at.astimezone(UTC).strftime("%Y%m%d-%H%M%S")
+    return f"{slugify(job_name)}_{stamp}_run{run_id}.{fmt}"
+
+
+def safe_export_path(exports_dir: Path, name: str) -> Path | None:
+    """Return the resolved path for a plain file name inside exports_dir, or None (SPEC 14.4)."""
+    if not name or "/" in name or "\\" in name or Path(name).is_absolute():
+        return None
+    root = exports_dir.resolve()
+    candidate = (root / name).resolve()
+    if not candidate.is_relative_to(root):
+        return None
+    return candidate
