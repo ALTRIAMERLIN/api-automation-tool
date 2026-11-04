@@ -116,6 +116,8 @@ class Fetcher:
         transport: httpx.BaseTransport,
         sleep: Callable[[float], None],
     ) -> None:
+        self._cfg = cfg
+        self._secret = secret
         self._headers = build_headers(cfg, secret)
         self._sleep = sleep
         self._client = httpx.Client(
@@ -126,6 +128,14 @@ class Fetcher:
         )
         self.retries = 0
         self.last_status: int | None = None
+
+    def page_url(self, page_params: Mapping[str, str | int]) -> str:
+        """Request URL for one page, with the pagination parameters and auth applied."""
+        return build_url(self._cfg, self._secret, page_params)
+
+    def follow_url(self, url: str) -> str:
+        """Request URL for a next_url follow-up: only the auth query parameter is added."""
+        return add_auth_query(url, self._cfg, self._secret)
 
     def get_json(self, url: str) -> Any:
         """GET one page and return its decoded JSON. Retries follow SPEC 6.4 and 6.5."""
