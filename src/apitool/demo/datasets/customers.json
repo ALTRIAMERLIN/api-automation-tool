@@ -1,0 +1,8 @@
+[
+  {"id": "C-001", "name": "Acme Ltd", "active": true, "balance": 1250.75, "profile": {"tier": "gold", "since": "2021-04-01"}},
+  {"id": "C-002", "name": "Beta LLC", "active": false, "balance": 0, "profile": {"tier": "silver", "since": "2022-11-15"}},
+  {"id": "C-003", "name": "Gamma GmbH", "active": true, "balance": -40.5, "profile": {"tier": "bronze", "since": null}},
+  {"id": "C-004", "name": "Delta & Sons", "active": true, "balance": 98765432101234567, "profile": {"tier": "gold", "since": "2020-01-31"}},
+  {"id": "C-005", "name": "Epsilon\u0007Bell", "active": false, "balance": 12, "profile": {}},
+  {"id": "C-006", "name": "Zeta Co", "active": true, "balance": 3.14159, "profile": {"tier": "silver", "since": "2023-06-30"}, "notes": ["a", {"b": 1}]}
+]

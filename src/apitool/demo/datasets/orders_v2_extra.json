@@ -1,0 +1,5 @@
+[
+  {"id": 1009, "status": "paid", "total": 15, "currency": "USD", "customer": {"name": "Gus Park", "email": "gus@example.com"}, "tags": [], "shipped": false, "note": "new in v2"},
+  {"id": 1010, "status": "pending", "total": 8.75, "currency": "GBP", "customer": {"name": "Hana Ito", "email": "hana@example.co.uk"}, "tags": ["intl"], "shipped": false, "note": null},
+  {"id": 1011, "status": "paid", "total": 250, "currency": "USD", "customer": {"name": "Ivy Chen", "email": "ivy@example.com"}, "tags": ["vip"], "shipped": true, "note": "bulk"}
+]

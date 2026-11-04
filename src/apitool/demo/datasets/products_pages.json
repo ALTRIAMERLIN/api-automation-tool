@@ -1,0 +1,13 @@
+[
+  {"items": [
+    {"sku": "SKU-1", "title": "Desk Lamp", "price": {"amount": 24.5, "currency": "USD"}, "stock": 12, "internal_code": "X1"},
+    {"sku": "SKU-2", "title": "Office Chair", "price": {"amount": 149, "currency": "USD"}, "stock": 0, "internal_code": "X2"}
+  ], "links": {"next": "https://demo.api-automation-tool.local/v1/products?page=2"}},
+  {"items": [
+    {"sku": "SKU-3", "title": "USB-C Hub", "price": {"amount": 39.99, "currency": "EUR"}, "stock": 57},
+    {"sku": "SKU-4", "title": "Notebook, A5", "price": {"amount": 3.2, "currency": "GBP"}}
+  ], "links": {"next": "/v1/products?page=3"}},
+  {"items": [
+    {"sku": "SKU-5", "title": "+Plus Pen", "price": {"amount": 1.75, "currency": "USD"}, "stock": 300}
+  ], "links": {"next": null}}
+]

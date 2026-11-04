@@ -1,0 +1,14 @@
+[
+  {"results": [
+    {"event_id": "evt_001", "type": "signup", "ts": "2026-10-01T09:00:00Z", "payload": {"plan": "pro", "seats": 5}},
+    {"event_id": "evt_002", "type": "upgrade", "ts": "2026-10-02T12:30:00Z", "payload": {"plan": "team", "seats": 12}}
+  ], "next_cursor": "c_2"},
+  {"results": [
+    {"event_id": "evt_003", "type": "login", "ts": "2026-10-03T08:15:00Z", "payload": {}},
+    {"event_id": "evt_004", "type": "cancel", "ts": "2026-10-04T17:45:00Z", "payload": {"plan": "pro", "reason": "too expensive, for now"}}
+  ], "next_cursor": "c_4"},
+  {"results": [
+    {"event_id": "evt_005", "type": "signup", "ts": "2026-10-05T10:00:00Z", "payload": {"plan": "free", "seats": 1}},
+    {"event_id": "evt_002", "type": "upgrade", "ts": "2026-10-02T12:30:00Z", "payload": {"plan": "team", "seats": 12}}
+  ], "next_cursor": null}
+]

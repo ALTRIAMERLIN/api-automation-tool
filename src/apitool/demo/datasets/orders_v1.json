@@ -1,0 +1,13 @@
+[
+  {"id": 1001, "status": "paid", "total": 19.99, "currency": "USD", "customer": {"name": "Alice Smith", "email": "alice@example.com"}, "tags": ["new", "vip"], "shipped": true, "note": null},
+  {"id": 1002, "status": "pending", "total": 5, "currency": "USD", "customer": {"name": "Bob, Jr.", "email": "bob@example.com"}, "tags": [], "shipped": false, "note": "Leave at \"back\" door"},
+  {"id": 1003, "status": "paid", "total": 120.5, "currency": "EUR", "customer": {"name": "Zoë Müller", "email": "zoe@example.de"}, "tags": ["intl"], "shipped": true, "note": "Line one\nLine two"},
+  {"id": 1004, "status": "refunded", "total": 0, "currency": "USD", "customer": {"name": "=HYPERLINK(\"http://evil.example\")", "email": "mallory@example.com"}, "tags": ["flagged"], "shipped": false, "note": "-discount applied"},
+  {"id": 1004, "status": "refunded", "total": 0, "currency": "USD", "customer": {"name": "=HYPERLINK(\"http://evil.example\")", "email": "mallory@example.com"}, "tags": ["flagged"], "shipped": false, "note": "-discount applied"},
+  {"id": 1005, "status": "paid", "total": 42.0, "currency": "JPY", "customer": {"name": "山田太郎", "email": "yamada@example.jp"}, "tags": ["intl", "vip"], "shipped": true, "note": "@mention"},
+  {"status": "pending", "total": 7.25, "currency": "USD", "customer": {"name": "No Id Corp", "email": "noid@example.com"}, "tags": [], "shipped": false, "note": ""},
+  {"id": 1006, "status": "paid", "total": 3.5, "currency": "USD", "customer": {"name": "Dana Lee"}, "tags": ["new"], "shipped": true},
+  {"id": 1002, "status": "paid", "total": 5, "currency": "USD", "customer": {"name": "Bob, Jr.", "email": "bob@example.com"}, "tags": [], "shipped": true, "note": "Leave at \"back\" door"},
+  {"id": 1007, "status": "paid", "total": 99.99, "currency": "USD", "customer": {"name": "Evan Ortiz", "email": "evan@example.com", "address": {"city": "Austin", "zip": "00731"}}, "tags": ["vip"], "shipped": true, "note": "+1 priority"},
+  {"id": 1008, "status": "cancelled", "total": -12.5, "currency": "USD", "customer": {"name": "Fay Wong", "email": "fay@example.com"}, "tags": ["a", "b", "c"], "shipped": false, "note": "\tTabbed", "coupon": "SAVE10"}
+]
